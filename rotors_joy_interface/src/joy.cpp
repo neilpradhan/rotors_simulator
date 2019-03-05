@@ -40,10 +40,12 @@ Joy::Joy() {
   pnh.param("axis_roll_", axes_.roll, 0);
   pnh.param("axis_pitch_", axes_.pitch, 1);
   pnh.param("axis_thrust_", axes_.thrust, 2);
+  pnh.param("axis_yaw_rate_", axes_.yaw_rate, -1); // Defaults to -1 if not set, in which case it'll be ignored below
 
   pnh.param("axis_direction_roll", axes_.roll_direction, -1);
   pnh.param("axis_direction_pitch", axes_.pitch_direction, 1);
   pnh.param("axis_direction_thrust", axes_.thrust_direction, 1);
+  pnh.param("axis_direction_yaw_rate", axes_.yaw_rate_direction, 1);
 
   pnh.param("max_v_xy", max_.v_xy, 1.0);  // [m/s]
   pnh.param("max_roll", max_.roll, 10.0 * M_PI / 180.0);  // [rad]
@@ -80,16 +82,20 @@ void Joy::JoyCallback(const sensor_msgs::JoyConstPtr& msg) {
   control_msg_.roll = msg->axes[axes_.roll] * max_.roll * axes_.roll_direction;
   control_msg_.pitch = msg->axes[axes_.pitch] * max_.pitch * axes_.pitch_direction;
 
-  if (msg->buttons[buttons_.yaw_left]) {
-    current_yaw_vel_ = max_.rate_yaw;
+  if (axes_.yaw_rate == -1) {
+      if (msg->buttons[buttons_.yaw_left]) {
+        current_yaw_vel_ = max_.rate_yaw;
+      }
+      else if (msg->buttons[buttons_.yaw_right]) {
+        current_yaw_vel_ = -max_.rate_yaw;
+      }
+      else {
+        current_yaw_vel_ = 0;
+      }
+      control_msg_.yaw_rate = current_yaw_vel_;
+  } else {
+      control_msg_.yaw_rate = msg->axes[axes_.yaw_rate] * max_.rate_yaw * axes_.yaw_rate_direction;
   }
-  else if (msg->buttons[buttons_.yaw_right]) {
-    current_yaw_vel_ = -max_.rate_yaw;
-  }
-  else {
-    current_yaw_vel_ = 0;
-  }
-  control_msg_.yaw_rate = current_yaw_vel_;
 
   if (is_fixed_wing_) {
     double thrust = msg->axes[axes_.thrust] * axes_.thrust_direction;
